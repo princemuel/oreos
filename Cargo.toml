@@ -3,10 +3,11 @@
   name    = "oreos"
   version = "0.1.0"
 
+[[bin]]
+  bench = false
+  name  = "oreos"
+  test  = false
+
 [dependencies]
+  bootloader = "0.9"
 
-[profile.dev]
-  panic = "abort"
-
-[profile.release]
-  panic = "abort"
