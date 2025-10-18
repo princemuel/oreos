@@ -24,3 +24,6 @@
 
 [build]
   target = "x86_64-oreos.json"
+
+[target.'cfg(target_os = "none")']
+  runner = "bootimage runner"
