@@ -1,13 +1,17 @@
+use volatile::{VolatilePtr, VolatileRef};
+
 pub fn print_something() {
-    let mut writer = Writer {
+    use core::fmt::Write;
+
+    let mut w = Writer {
         column_position: 0,
         code:            ColorCode::new(Color::Yellow, Color::Black),
         buffer:          unsafe { &mut *(0xb8000 as *mut Buffer) },
     };
 
-    writer.write_byte(b'H');
-    writer.write_string("ello ");
-    writer.write_string("Wörld!");
+    w.write_byte(b'H');
+    w.write_string("ello! ");
+    write!(w, "The numbers are {} and {}", 42, 1.0 / 3.0).unwrap();
 }
 
 #[repr(u8)]
@@ -42,13 +46,13 @@ impl ColorCode {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ScreenCharacter {
+pub struct ScreenChar {
     /// The ASCII character
     char: u8,
     code: ColorCode,
 }
 
-impl ScreenCharacter {
+impl ScreenChar {
     fn new(character: u8, code: ColorCode) -> Self { Self { char: character, code } }
 }
 
@@ -57,7 +61,7 @@ const BUFFER_WIDTH: usize = 80;
 
 #[repr(transparent)]
 pub struct Buffer {
-    chars: [[ScreenCharacter; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    chars: [[VolatilePtr<'static, ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 pub struct Writer {
@@ -67,10 +71,6 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn new(column_position: usize, code: ColorCode, buffer: &'static mut Buffer) -> Self {
-        Self { column_position, code, buffer }
-    }
-
     pub fn write_string(&mut self, value: impl AsRef<str>) {
         for byte in value.as_ref().bytes() {
             match byte {
@@ -94,11 +94,41 @@ impl Writer {
                 let col = self.column_position;
 
                 let color_code = self.code;
-                self.buffer.chars[row][col] = ScreenCharacter::new(byte, color_code);
+
+                {
+                    let item = self.buffer.chars[row][col];
+                    item.write(ScreenChar::new(byte, color_code));
+                }
+
+                // self.buffer.chars[row][col] = ScreenChar::new(byte, color_code);
+
                 self.column_position += 1;
             },
         }
     }
 
-    fn new_line(&mut self) { todo!() }
+    fn new_line(&mut self) {
+        for row in 1..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                let character = self.buffer.chars[row][col].read();
+                self.buffer.chars[row - 1][col].write(character);
+            }
+        }
+        self.clear_row(BUFFER_HEIGHT - 1);
+        self.column_position = 0;
+    }
+
+    fn clear_row(&mut self, row: usize) {
+        let blank = ScreenChar::new(b' ', self.code);
+        for col in 0..BUFFER_WIDTH {
+            self.buffer.chars[row][col].write(blank);
+        }
+    }
+}
+
+impl core::fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.write_string(s);
+        Ok(())
+    }
 }
