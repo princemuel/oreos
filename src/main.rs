@@ -5,7 +5,10 @@ use core::panic::PanicInfo;
 
 #[unsafe(no_mangle)] // don't mangle the name of this function
 pub extern "C" fn _start() -> ! {
-    oreos::buffer::print_something();
+    use oreos::buffer;
+
+    buffer::WRITER.lock().write_str("Hello again").unwrap();
+    write!(buffer::WRITER.lock(), ", some numbers: {} {}", 42, 1.337).unwrap();
 
     #[allow(clippy::empty_loop)]
     loop {}
