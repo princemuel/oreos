@@ -23,7 +23,7 @@
   build-std-features = ["compiler-builtins-mem"]
 
 [build]
-  target = "x86_64-oreos.json"
+  target = "x86_64-unknown-oreos.json"
 
 [target.'cfg(target_os = "none")']
   runner = "bootimage runner"

@@ -9,5 +9,18 @@
   test  = false
 
 [dependencies]
-  bootloader = "0.9"
+  bootloader = { version = "0.9", features = ["map_physical_memory"] }
+  spin       = "0.10"
+  volatile   = "0.6"
 
+  [dependencies.lazy_static]
+    features = ["spin_no_std"]
+    version  = "1"
+
+    # [[test]]
+    #   harness = false
+    #   name    = "should_panic"
+
+    # [[test]]
+    #   harness = false
+    #   name    = "stack_overflow"
