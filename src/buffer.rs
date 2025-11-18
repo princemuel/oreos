@@ -58,12 +58,30 @@ impl ScreenChar {
     fn new(character: u8, code: ColorCode) -> Self { Self { char: character, code } }
 }
 
-const BUFFER_HEIGHT: usize = 25;
-const BUFFER_WIDTH: usize = 80;
+const BUFFER_SIZE_Y: usize = 25;
+const BUFFER_SIZE_X: usize = 80;
+
 
 #[repr(transparent)]
-pub struct Buffer {
-    chars: [[VolatilePtr<'static, ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
+struct Buffer {
+    chars: [[ScreenChar; BUFFER_SIZE_X]; BUFFER_SIZE_Y],
+}
+impl Buffer {
+    /// Writes character `c` to `row`,`col` in the VGA buffer.
+    fn write(&mut self, row: usize, col: usize, c: ScreenChar) {
+        unsafe {
+            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA buffer.
+            ptr::write_volatile(&mut self.chars[row][col], c);
+        }
+    }
+
+    /// Reads a character from the VGA buffer at position `row`,`col`.
+    fn read(&self, row: usize, col: usize) -> ScreenChar {
+        unsafe {
+            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA buffer.
+            ptr::read_volatile(&self.chars[row][col])
+        }
+    }
 }
 
 lazy_static! {
@@ -117,19 +135,19 @@ impl Writer {
     }
 
     fn new_line(&mut self) {
-        for row in 1..BUFFER_HEIGHT {
-            for col in 0..BUFFER_WIDTH {
+        for row in 1..BUFFER_SIZE_Y {
+            for col in 0..BUFFER_SIZE_X {
                 let character = self.buffer.chars[row][col].read();
                 self.buffer.chars[row - 1][col].write(character);
             }
         }
-        self.clear_row(BUFFER_HEIGHT - 1);
+        self.clear_row(BUFFER_SIZE_X - 1);
         self.column_position = 0;
     }
 
     fn clear_row(&mut self, row: usize) {
         let blank = ScreenChar::new(b' ', self.code);
-        for col in 0..BUFFER_WIDTH {
+        for col in 0..BUFFER_SIZE_X {
             self.buffer.chars[row][col].write(blank);
         }
     }
