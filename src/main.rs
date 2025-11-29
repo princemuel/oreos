@@ -3,11 +3,15 @@
 
 use core::panic::PanicInfo;
 
-use oreos::println;
+use oreos::buffer;
 
 #[unsafe(no_mangle)] // don't mangle the name of this function
 pub extern "C" fn _start() -> ! {
-    println!("Hello World{}", "!");
+    use core::fmt::Write as _;
+
+    buffer::WRITER.lock().write_str("Hello again").unwrap();
+
+    write!(buffer::WRITER.lock(), ", some numbers: {} {}", 42, 1.337).unwrap();
 
     #[allow(clippy::empty_loop)]
     loop {}
@@ -15,7 +19,4 @@ pub extern "C" fn _start() -> ! {
 
 /// This function is called on panic.
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    println!("{}", info);
-    loop {}
-}
+fn panic(_: &PanicInfo) -> ! { unsafe { core::hint::unreachable_unchecked() } }

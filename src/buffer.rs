@@ -1,23 +1,10 @@
+use core::ptr;
+
 use lazy_static::lazy_static;
 use spin::Mutex;
-use volatile::{VolatilePtr, VolatileRef};
-
-pub fn print_something() {
-    use core::fmt::Write;
-
-    let mut w = Writer {
-        column_position: 0,
-        code:            ColorCode::new(Color::Yellow, Color::Black),
-        buffer:          unsafe { &mut *(0xb8000 as *mut Buffer) },
-    };
-
-    w.write_byte(b'H');
-    w.write_string("ello! ");
-    write!(w, "The numbers are {} and {}", 42, 1.0 / 3.0).unwrap();
-}
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Color {
     Black      = 0,
     Blue       = 1,
@@ -38,16 +25,16 @@ pub enum Color {
 }
 
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorCode(u8);
 impl ColorCode {
-    fn new(foreground: Color, background: Color) -> Self {
+    const fn new(foreground: Color, background: Color) -> Self {
         Self((background as u8) << 4 | (foreground as u8))
     }
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ScreenChar {
     /// The ASCII character
     char: u8,
@@ -55,30 +42,32 @@ pub struct ScreenChar {
 }
 
 impl ScreenChar {
-    fn new(character: u8, code: ColorCode) -> Self { Self { char: character, code } }
+    const fn new(ch: u8, code: ColorCode) -> Self { Self { char: ch, code } }
 }
 
-const BUFFER_SIZE_Y: usize = 25;
-const BUFFER_SIZE_X: usize = 80;
-
+const BUFFER_HEIGHT: usize = 25;
+const BUFFER_WIDTH: usize = 80;
 
 #[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Buffer {
-    chars: [[ScreenChar; BUFFER_SIZE_X]; BUFFER_SIZE_Y],
+    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 impl Buffer {
     /// Writes character `c` to `row`,`col` in the VGA buffer.
-    fn write(&mut self, row: usize, col: usize, c: ScreenChar) {
+    fn write(&mut self, row: usize, col: usize, ch: ScreenChar) {
         unsafe {
-            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA buffer.
-            ptr::write_volatile(&mut self.chars[row][col], c);
+            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA
+            // buffer.
+            ptr::write_volatile(&mut self.chars[row][col], ch);
         }
     }
 
     /// Reads a character from the VGA buffer at position `row`,`col`.
     fn read(&self, row: usize, col: usize) -> ScreenChar {
         unsafe {
-            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA buffer.
+            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA
+            // buffer.
             ptr::read_volatile(&self.chars[row][col])
         }
     }
@@ -86,15 +75,15 @@ impl Buffer {
 
 lazy_static! {
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
-        column_position: 0,
-        code:            ColorCode::new(Color::Yellow, Color::Black),
-        buffer:          unsafe { &mut *(0xb8000 as *mut Buffer) },
+        pos:    0,
+        code:   ColorCode::new(Color::Yellow, Color::Black),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
 }
 pub struct Writer {
-    column_position: usize,
-    code:            ColorCode,
-    buffer:          &'static mut Buffer,
+    pos:    usize,
+    code:   ColorCode,
+    buffer: &'static mut Buffer,
 }
 
 impl Writer {
@@ -113,42 +102,38 @@ impl Writer {
         match value {
             b'\n' => self.new_line(),
             byte => {
-                if self.column_position >= BUFFER_WIDTH {
+                if self.pos >= BUFFER_WIDTH {
                     self.new_line();
                 }
 
                 let row = BUFFER_HEIGHT - 1;
-                let col = self.column_position;
+                let col = self.pos;
 
                 let color_code = self.code;
 
-                {
-                    let item = self.buffer.chars[row][col];
-                    item.write(ScreenChar::new(byte, color_code));
-                }
+                self.buffer
+                    .write(row, col, ScreenChar::new(byte, color_code));
 
-                // self.buffer.chars[row][col] = ScreenChar::new(byte, color_code);
-
-                self.column_position += 1;
-            },
+                self.pos += 1;
+            }
         }
     }
 
     fn new_line(&mut self) {
-        for row in 1..BUFFER_SIZE_Y {
-            for col in 0..BUFFER_SIZE_X {
-                let character = self.buffer.chars[row][col].read();
-                self.buffer.chars[row - 1][col].write(character);
+        for row in 1..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                let ch = self.buffer.read(row, col);
+                self.buffer.write(row, col, ch);
             }
         }
-        self.clear_row(BUFFER_SIZE_X - 1);
-        self.column_position = 0;
+        self.clear_row(BUFFER_WIDTH - 1);
+        self.pos = 0;
     }
 
     fn clear_row(&mut self, row: usize) {
         let blank = ScreenChar::new(b' ', self.code);
-        for col in 0..BUFFER_SIZE_X {
-            self.buffer.chars[row][col].write(blank);
+        for col in 0..BUFFER_WIDTH {
+            self.buffer.write(row, col, blank);
         }
     }
 }
