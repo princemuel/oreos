@@ -1,5 +1,6 @@
 [toolchain]
-  channel    = "nightly"
-  components = ["clippy", "llvm-tools-preview", "miri", "rust-src", "rustfmt"]
-  profile    = "default"
-  # target     = "x86_64-unknown-none"
+channel    = "nightly"
+components = ["llvm-tools-preview", "miri"]
+profile    = "default"
+targets    = ["x86_64-unknown-none"]
+# target     = "x86_64-unknown-none"

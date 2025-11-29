@@ -33,7 +33,6 @@ dependencies = [
  "bootloader",
  "lazy_static",
  "spin 0.10.0",
- "volatile",
 ]
 
 [[package]]
@@ -56,9 +55,3 @@ checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
 dependencies = [
  "lock_api",
 ]
-
-[[package]]
-name = "volatile"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af8ca9a5d4debca0633e697c88269395493cebf2e10db21ca2dbde37c1356452"

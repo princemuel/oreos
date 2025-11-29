@@ -1,2 +1,0 @@
-# Minimum Supported Rust Version (conservative for tooling)
-msrv = "1.87"

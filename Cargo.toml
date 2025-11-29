@@ -1,26 +1,25 @@
 [package]
-  edition = "2024"
-  name    = "oreos"
-  version = "0.1.0"
+edition = "2024"
+name    = "oreos"
+version = "0.1.0"
 
 [[bin]]
-  bench = false
-  name  = "oreos"
-  test  = false
+bench = false
+name  = "oreos"
+test  = false
 
 [dependencies]
-  bootloader = { version = "0.9", features = ["map_physical_memory"] }
-  spin       = "0.10"
-  volatile   = "0.6"
+bootloader = { version = "0.9", features = ["map_physical_memory"] }
+spin       = "0.10"
 
   [dependencies.lazy_static]
-    features = ["spin_no_std"]
-    version  = "1"
+  features = ["spin_no_std"]
+  version  = "1"
 
-    # [[test]]
-    #   harness = false
-    #   name    = "should_panic"
+  # [[test]]
+  #   harness = false
+  #   name    = "should_panic"
 
-    # [[test]]
-    #   harness = false
-    #   name    = "stack_overflow"
+  # [[test]]
+  #   harness = false
+  #   name    = "stack_overflow"
