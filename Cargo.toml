@@ -1,26 +1,18 @@
-[package]
-name    = "oreos"
+#:tombi schema.strict = false
+#:schema https://www.schemastore.org/cargo.json
+# https://doc.rust-lang.org/cargo/reference/resolver.html#resolver-versions
+
+[workspace]
+resolver = "3"
+members  = ["crates/*"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
 
-[[bin]]
-bench = false
-name  = "oreos"
-test  = false
-
-[dependencies]
-bootloader = { version = "0.9", features = ["map_physical_memory"] }
-spin       = "0.12"
-
-# [[test]]
-#   harness = false
-#   name    = "should_panic"
-
-# [[test]]
-#   harness = false
-#   name    = "stack_overflow"
-
-[lints.clippy]
+[workspace.lints.clippy]
 all      = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 
@@ -93,7 +85,7 @@ unused_trait_names                   = "warn"
 unwrap_used                          = "warn"
 verbose_file_reads                   = "warn"
 
-[lints.rust]
+[workspace.lints.rust]
 future-incompatible                        = { level = "warn", priority = -1 }
 # --- Safety & correctness ---
 nonstandard-style                          = { level = "warn", priority = -1 }
@@ -127,6 +119,14 @@ unused-import-braces          = "deny"
 unused-lifetimes              = "warn"
 unused-qualifications         = "deny"
 unused-results                = "warn"
+
+# [[test]]
+#   harness = false
+#   name    = "should_panic"
+
+# [[test]]
+#   harness = false
+#   name    = "stack_overflow"
 
 [profile.bench]
 opt-level     = 3

@@ -9,20 +9,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bdfddac270bbdd45903296bc1caf29a7fdce6b326aaf0bbab7f04c5f98b7447"
 
 [[package]]
+name = "kernel"
+version = "0.1.0"
+dependencies = [
+ "bootloader",
+ "spin",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
-]
-
-[[package]]
-name = "oreos"
-version = "0.1.0"
-dependencies = [
- "bootloader",
- "spin",
 ]
 
 [[package]]

@@ -2,3 +2,4 @@
 channel    = "nightly"
 profile    = "default"
 components = ["rust-src", "llvm-tools-preview", "miri"]
+targets    = ["x86_64-unknown-none", "x86_64-unknown-uefi"]

@@ -5,22 +5,22 @@ use spin::{LazyLock, Mutex};
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Color {
-    Black = 0,
-    Blue = 1,
-    Green = 2,
-    Cyan = 3,
-    Red = 4,
-    Magenta = 5,
-    Brown = 6,
-    LightGray = 7,
-    DarkGray = 8,
-    LightBlue = 9,
-    LightGreen = 10,
-    LightCyan = 11,
-    LightRed = 12,
-    Pink = 13,
-    Yellow = 14,
-    White = 15,
+    Black = 0x0,
+    Blue = 0x1,
+    Green = 0x2,
+    Cyan = 0x3,
+    Red = 0x4,
+    Magenta = 0x5,
+    Brown = 0x6,
+    LightGray = 0x7,
+    DarkGray = 0x8,
+    LightBlue = 0x9,
+    LightGreen = 0xa,
+    LightCyan = 0xb,
+    LightRed = 0xc,
+    Pink = 0xd,
+    Yellow = 0xe,
+    White = 0xf,
 }
 
 #[repr(transparent)]
