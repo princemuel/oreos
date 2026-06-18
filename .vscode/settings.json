@@ -17,6 +17,7 @@
   "editor.quickSuggestions": { "strings": "on" },
   "dotenv.enableAutocloaking": false,
   "json.validate.enable": true,
+  "json.schemas": [{ "fileMatch": ["x86_64-unknown-oreos.json"], "url": "./specs.json" }],
   "material-icon-theme.activeIconPack": "react_redux",
   "material-icon-theme.folders.associations": {
     "network": "app"
