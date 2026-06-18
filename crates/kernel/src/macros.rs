@@ -15,5 +15,8 @@ pub fn _print(args: core::fmt::Arguments<'_>) {
 
     use crate::buffer::WRITER;
 
-    let _ = WRITER.lock().write_fmt(args);
+    {
+        let mut w = WRITER.lock();
+        let _ = w.write_fmt(args);
+    }
 }
