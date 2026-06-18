@@ -1,48 +1,49 @@
 use core::ptr;
 
-use lazy_static::lazy_static;
-use spin::Mutex;
+use spin::{LazyLock, Mutex};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Color {
-    Black      = 0,
-    Blue       = 1,
-    Green      = 2,
-    Cyan       = 3,
-    Red        = 4,
-    Magenta    = 5,
-    Brown      = 6,
-    LightGray  = 7,
-    DarkGray   = 8,
-    LightBlue  = 9,
+    Black = 0,
+    Blue = 1,
+    Green = 2,
+    Cyan = 3,
+    Red = 4,
+    Magenta = 5,
+    Brown = 6,
+    LightGray = 7,
+    DarkGray = 8,
+    LightBlue = 9,
     LightGreen = 10,
-    LightCyan  = 11,
-    LightRed   = 12,
-    Pink       = 13,
-    Yellow     = 14,
-    White      = 15,
+    LightCyan = 11,
+    LightRed = 12,
+    Pink = 13,
+    Yellow = 14,
+    White = 15,
 }
 
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorCode(u8);
+
 impl ColorCode {
+    #[expect(clippy::as_conversions)]
     const fn new(foreground: Color, background: Color) -> Self {
-        Self((background as u8) << 4 | (foreground as u8))
+        Self(((background as u8) << 4) | (foreground as u8))
     }
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ScreenChar {
-    /// The ASCII character
-    char: u8,
+    /// The printable ASCII byte (or `0xfe` as a placeholder glyph).
+    ascii: u8,
     code: ColorCode,
 }
 
 impl ScreenChar {
-    const fn new(ch: u8, code: ColorCode) -> Self { Self { char: ch, code } }
+    const fn new(ascii: u8, code: ColorCode) -> Self { Self { ascii, code } }
 }
 
 const BUFFER_HEIGHT: usize = 25;
@@ -53,36 +54,68 @@ const BUFFER_WIDTH: usize = 80;
 struct Buffer {
     chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
+
 impl Buffer {
-    /// Writes character `c` to `row`,`col` in the VGA buffer.
-    fn write(&mut self, row: usize, col: usize, ch: ScreenChar) {
+    /// Writes character `ch` to `row`,`col` in the VGA buffer.
+    ///
+    /// Returns `false` if `row`/`col` are out of bounds; the write is
+    /// skipped rather than panicking.
+    fn write(&mut self, row: usize, col: usize, ch: ScreenChar) -> bool {
+        let Some(row) = self.chars.get_mut(row) else { return false };
+        let Some(cell) = row.get_mut(col) else { return false };
+
         unsafe {
-            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA
-            // buffer.
-            ptr::write_volatile(&mut self.chars[row][col], ch);
+            // UNSAFE: `cell` is a memory-mapped VGA cell; the write must go
+            // through hardware rather than be elided/reordered by the
+            // optimizer.
+            ptr::write_volatile(cell, ch);
         }
+        true
     }
 
     /// Reads a character from the VGA buffer at position `row`,`col`.
-    fn read(&self, row: usize, col: usize) -> ScreenChar {
+    ///
+    /// Returns `None` if `row`/`col` are out of bounds.
+    fn read(&self, row: usize, col: usize) -> Option<ScreenChar> {
+        let cell = self.chars.get(row)?.get(col)?;
+
         unsafe {
-            // UNSAFE: all pointers in `chars` point to a valid ScreenChar in the VGA
-            // buffer.
-            ptr::read_volatile(&self.chars[row][col])
+            // UNSAFE: `cell` is a memory-mapped VGA cell; the read must go
+            // through hardware rather than be elided/reordered by the
+            // optimizer.
+            Some(ptr::read_volatile(cell))
         }
+    }
+
+    /// # Safety
+    /// Caller must guarantee no other live reference to the VGA buffer
+    /// exists for the duration of the returned reference's lifetime.
+    unsafe fn at_vga_address() -> &'static mut Buffer {
+        // SAFETY: 0xb8000 is the standard physical address of the VGA
+        // text-mode buffer on x86, identity-mapped by the bootloader before
+        // this runs. `Buffer` has alignment 1, so no alignment requirement
+        // applies. This is the *only* place a reference to this address is
+        // ever created; all access goes through this single `WRITER`
+        // static guarded by `Mutex`, so the `&'static mut` here is never
+        // aliased.
+        #[expect(clippy::as_conversions)]
+        let ptr = 0xb8000 as *mut Buffer;
+
+        unsafe { &mut *ptr }
     }
 }
 
-lazy_static! {
-    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
-        pos:    0,
-        code:   ColorCode::new(Color::Yellow, Color::Black),
-        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
-    });
-}
+pub static WRITER: LazyLock<Mutex<Writer>> = LazyLock::new(|| {
+    Mutex::new(Writer {
+        pos: 0,
+        code: ColorCode::new(Color::Yellow, Color::Black),
+        buffer: unsafe { Buffer::at_vga_address() },
+    })
+});
+
 pub struct Writer {
-    pos:    usize,
-    code:   ColorCode,
+    pos: usize,
+    code: ColorCode,
     buffer: &'static mut Buffer,
 }
 
@@ -108,32 +141,45 @@ impl Writer {
 
                 let row = BUFFER_HEIGHT - 1;
                 let col = self.pos;
+                let code = self.code;
 
-                let color_code = self.code;
-
-                self.buffer
-                    .write(row, col, ScreenChar::new(byte, color_code));
+                debug_assert!(
+                    self.buffer.write(row, col, ScreenChar::new(byte, code)),
+                    "write_byte: pos {col} should always be < BUFFER_WIDTH here"
+                );
 
                 self.pos += 1;
             }
         }
     }
 
+    /// Scrolls every row up by one, dropping row `0` and leaving a blank
+    /// row at the bottom.
     fn new_line(&mut self) {
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
-                let ch = self.buffer.read(row, col);
-                self.buffer.write(row, col, ch);
+                let Some(ch) = self.buffer.read(row, col) else {
+                    debug_assert!(false, "new_line: ({row}, {col}) should always be in bounds");
+                    continue;
+                };
+                debug_assert!(
+                    self.buffer.write(row - 1, col, ch),
+                    "new_line: ({}, {col}) should always be in bounds",
+                    row - 1
+                );
             }
         }
-        self.clear_row(BUFFER_WIDTH - 1);
+        self.clear_row(BUFFER_HEIGHT - 1);
         self.pos = 0;
     }
 
     fn clear_row(&mut self, row: usize) {
         let blank = ScreenChar::new(b' ', self.code);
         for col in 0..BUFFER_WIDTH {
-            self.buffer.write(row, col, blank);
+            debug_assert!(
+                self.buffer.write(row, col, blank),
+                "clear_row: ({row}, {col}) should always be in bounds"
+            );
         }
     }
 }
