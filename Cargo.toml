@@ -9,9 +9,8 @@ name  = "oreos"
 test  = false
 
 [dependencies]
-bootloader  = { version = "0.9", features = ["map_physical_memory"] }
-lazy_static = { version = "1", features = ["spin_no_std"] }
-spin        = "0.12"
+bootloader = { version = "0.9", features = ["map_physical_memory"] }
+spin       = "0.12"
 
 # [[test]]
 #   harness = false

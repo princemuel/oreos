@@ -28,4 +28,4 @@ target = "x86_64-unknown-oreos.json"
 
 [target.'cfg(target_os = "none")']
 runner = "bootimage runner"
-# runner = "qemu-system-x86_64 -drive format=raw,file=target\x86_64-rust_os\debug\bootimage-rust-os.bin"
+# runner = "qemu-system-x86_64 -drive format=raw,file=target/x86_64-unknown-oreos/debug/bootimage-oreos.bin`"
