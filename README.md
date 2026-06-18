@@ -6,19 +6,19 @@ A minimal operating system kernel bootstrapped with Rust
 
 - Install the `x86_64-unknown-none` target using rustup:
 
-  ```
+  ```console
   rustup target add x86_64-unknown-none
   ```
 
 - Build by running:
 
-  ```
+  ```console
   cargo build --target x86_64-unknown-none
   ```
 
 ## License
 
-- MIT license ([LICENSE-MIT](LICENSE) or <http://opensource.org/licenses/MIT>)
+- MIT license ([LICENSE-MIT](LICENSE.txt) or <http://opensource.org/licenses/MIT>)
 
 Note that this only applies to this git branch, other branches might be licensed differently.
 

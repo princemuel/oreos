@@ -1,6 +1,6 @@
 [toolchain]
 channel    = "nightly"
-components = ["llvm-tools-preview", "miri"]
 profile    = "default"
 targets    = ["x86_64-unknown-none"]
+components = ["llvm-tools-preview", "miri"]
 # target     = "x86_64-unknown-none"
