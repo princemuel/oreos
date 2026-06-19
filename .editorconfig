@@ -32,6 +32,9 @@ max_line_length = 96
 [{*.rs,*.zig}]
 indent_size = 4
 
+[{*.S,*.asm,*.nasm}]
+indent_size = 4
+
 [{*.c,*.h,*.cpp,*.hpp,*.cc,*.cxx,*.hh,*.hxx}]
 indent_size = 4
 

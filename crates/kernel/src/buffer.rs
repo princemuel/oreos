@@ -3,6 +3,19 @@ use core::ptr;
 use spin::lazylock::LazyLock;
 use spin::mutex::Mutex;
 
+/// A global `Writer` instance that can be used for printing to the VGA text
+/// buffer.
+///
+/// Used by the `print!` and `println!` macros.
+pub static WRITER: LazyLock<Mutex<Writer>> = LazyLock::new(|| {
+    Mutex::new(Writer {
+        cursor: 0,
+        code: ColorCode::new(Color::Yellow, Color::Black),
+        buffer: unsafe { Buffer::at_vga_address() },
+    })
+});
+
+/// The standard color palette in VGA text mode.
 #[repr(u8)]
 #[derive(Clone, Copy, Debug)]
 pub enum Color {
@@ -24,6 +37,7 @@ pub enum Color {
     White = 0x0f,
 }
 
+/// A combination of a foreground and a background color.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 pub struct ColorCode(u8);
@@ -47,9 +61,12 @@ impl ScreenChar {
     const fn new(ascii: u8, code: ColorCode) -> Self { Self { ascii, code } }
 }
 
-const BUFFER_WIDTH: usize = 80;
+/// The height of the text buffer (normally 25 lines).
 const BUFFER_HEIGHT: usize = 25;
+/// The width of the text buffer (normally 80 columns).
+const BUFFER_WIDTH: usize = 80;
 
+/// A structure representing the VGA text buffer.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug)]
 struct Buffer {
@@ -107,14 +124,11 @@ impl Buffer {
     }
 }
 
-pub static WRITER: LazyLock<Mutex<Writer>> = LazyLock::new(|| {
-    Mutex::new(Writer {
-        cursor: 0,
-        code: ColorCode::new(Color::Yellow, Color::Black),
-        buffer: unsafe { Buffer::at_vga_address() },
-    })
-});
-
+/// A writer type that allows writing ASCII bytes and strings to an underlying
+/// `Buffer`.
+///
+/// Wraps lines at [`BUFFER_WIDTH`]. Supports newline characters and implements
+/// the `core::fmt::Write` trait.
 pub struct Writer {
     cursor: usize,
     code: ColorCode,
@@ -122,6 +136,11 @@ pub struct Writer {
 }
 
 impl Writer {
+    /// Writes the given ASCII string to the buffer.
+    ///
+    /// Wraps lines at [`BUFFER_WIDTH`]. Supports the `\n` newline character.
+    /// Does **not** support strings with non-ASCII characters, since they
+    /// can't be printed in the VGA text mode.
     pub fn write_string(&mut self, value: impl AsRef<str>) {
         for byte in value.as_ref().bytes() {
             match byte {
@@ -133,6 +152,9 @@ impl Writer {
         }
     }
 
+    /// Writes an ASCII byte to the buffer.
+    ///
+    /// Wraps lines at [`BUFFER_WIDTH`]. Supports the `\n` newline character.
     pub fn write_byte(&mut self, value: u8) {
         match value {
             b'\n' => self.new_line(),
@@ -155,8 +177,7 @@ impl Writer {
         }
     }
 
-    /// Scrolls every row up by one, dropping row `0` and leaving a blank
-    /// row at the bottom.
+    /// Shifts all lines one line up and clears the last row.
     fn new_line(&mut self) {
         for row in 1..BUFFER_HEIGHT {
             for col in 0..BUFFER_WIDTH {
@@ -164,24 +185,26 @@ impl Writer {
                     debug_assert!(false, "new_line: ({row}, {col}) should always be in bounds");
                     continue;
                 };
+
+                let in_bounds = self.buffer.write(row - 1, col, ch);
                 debug_assert!(
-                    self.buffer.write(row - 1, col, ch),
-                    "new_line: ({}, {col}) should always be in bounds",
-                    row - 1
+                    in_bounds,
+                    "new_line: ({row}, {col}) should always be in bounds",
+                    row = row - 1
                 );
             }
         }
+
         self.clear_row(BUFFER_HEIGHT - 1);
         self.cursor = 0;
     }
 
+    /// Clears a row by overwriting it with blank characters.
     fn clear_row(&mut self, row: usize) {
         let blank = ScreenChar::new(b' ', self.code);
         for col in 0..BUFFER_WIDTH {
-            debug_assert!(
-                self.buffer.write(row, col, blank),
-                "clear_row: ({row}, {col}) should always be in bounds"
-            );
+            let in_bounds = self.buffer.write(row, col, blank);
+            debug_assert!(in_bounds, "clear_row: ({row}, {col}) should always be in bounds");
         }
     }
 }
